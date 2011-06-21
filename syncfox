@@ -7,7 +7,6 @@
 #  - Add support for non-relative paths in profiles.ini
 #  - Add a restore option
 #
-# Version: 0.1 (2011-06-19)
 # License: GPL
 # Original credits to xrchz <https://aur.archlinux.org/account.php?Action=AccountInfo&ID=13781>
 
@@ -19,10 +18,9 @@ if [[ "$(firefox --version | awk -F' ' '{print $3}' | awk -F'.' '{print $1}')" =
 fi
 
 # Some default values (default profile is [Profile0] in profiles.ini)
-firefox_bin="$(which firefox)"
 firefox_profiles_dir="$HOME/.mozilla/firefox"
 default_profile="$(awk 'BEGIN{RS=""}/^\[Profile0\]/' "$firefox_profiles_dir/profiles.ini" | grep "Name" | awk -F'=' '{print $2}')"
-profile="${1:-$default_profile}"
+profile="${default_profile}"
 
 function usage()
 {
@@ -113,7 +111,7 @@ EOF
 fi
 
 # If other firefox instances exist, just launch the main executable.
-if [[ $(pidof $firefox_bin) != '' ]]; then
+if [[ $(pidof firefox-bin) != '' ]]; then
 	exec /usr/bin/firefox -P "$profile" "$@"
 else
 	firefox_sync "$profile" && /usr/bin/firefox -P "$profile" "$@" && firefox_sync "$profile"
