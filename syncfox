@@ -1,0 +1,122 @@
+#!/bin/bash
+# Script to synchronize the profile in the physical directory with a
+# copy in RAM using tmpfs, to speed it up and limit disk writes
+# (especially useful with SSDs).
+#
+# TODO
+#  - Add support for non-relative paths in profiles.ini
+#  - Add a restore option
+#
+# Version: 0.1 (2011-06-19)
+# License: GPL
+# Original credits to xrchz <https://aur.archlinux.org/account.php?Action=AccountInfo&ID=13781>
+
+set -eu
+
+# Needed with Firefox 3
+if [[ "$(firefox --version | awk -F' ' '{print $3}' | awk -F'.' '{print $1}')" == 3 ]]; then
+	rm -f ~/.mozilla/firefox/*/compatibility.ini || true
+fi
+
+# Some default values (default profile is [Profile0] in profiles.ini)
+firefox_bin="$(which firefox)"
+firefox_profiles_dir="$HOME/.mozilla/firefox"
+default_profile="$(awk 'BEGIN{RS=""}/^\[Profile0\]/' "$firefox_profiles_dir/profiles.ini" | grep "Name" | awk -F'=' '{print $2}')"
+profile="${1:-$default_profile}"
+
+function usage()
+{
+	cat << EOF
+ Usage:
+	$(basename $0) -p <profile>
+	$(basename $0) -l
+	$(basename $0) -h
+
+ Options:
+	-l		Lists available profiles.
+	-p <profile>	Launches firefox with <profile> enabled.
+	-h		Shows this help.
+
+EOF
+}
+
+function list_profiles()
+{
+	echo "List of available profiles:"
+	grep "Name=" $HOME/.mozilla/firefox/profiles.ini | awk -F'=' '{print $2}'
+}
+
+function firefox_sync()
+{
+	local static="main.${1}"
+	local link="$(grep "Path" $firefox_profiles_dir/profiles.ini | grep "$1" | awk -F'=' '{print $2}')"
+	local volatile="/dev/shm/$USER/firefox/$link"
+
+	cd $firefox_profiles_dir
+
+	if [[ ! -r "$volatile" ]]; then
+		install -dm700 "$volatile"
+	fi
+
+	if [[ "$(readlink $link)" != "$volatile" ]]; then
+		mv "$link" "$static"
+		ln -s "$volatile" "$link"
+	fi
+
+	if [[ -e "$link/.unpacked" ]]; then
+		rsync -av --delete --exclude .unpacked ./"$link"/ ./"$static"/
+	else
+		rsync -av ./"$static"/ ./"$link"/
+		touch "$link"/.unpacked
+	fi
+}
+
+while getopts "hlp:" option ; do
+	case $option in
+		h)
+			usage
+			exit 0
+			;;
+		l)
+			list_profiles
+			exit 0
+			;;
+		p)
+			profile="$OPTARG"
+			;;
+		\? )
+			echo "Please, type $(basename $0) -h for help on usage."
+			exit 1
+			;;
+	esac
+done
+shift $(($OPTIND - 1))
+
+profile_dir=$(grep "Path" $firefox_profiles_dir/profiles.ini | grep "$profile" | awk -F'=' '{print $2}')
+
+if [[ ! -r "${firefox_profiles_dir}/main.${profile}" ]]; then
+	cat <<EOF
+WARNING: this is the first time you synchronize "${profile}" profile.
+Synchronization will move all the files contained in $firefox_profiles_dir/$profile_dir
+directory into $firefox_profiles_dir/main.$profile, and install the original one in /dev/shm.
+There shouldn't be any loss of data, anyway make sure you've got a backup copy of
+${firefox_profiles_dir}/$profile_dir before going on.
+EOF
+	echo -n "Do you want to continue (y/n)? "
+	while read answer; do
+		if [[ "$answer" != "y" ]]; then
+			exit 0
+		else
+			break
+		fi
+	done
+fi
+
+# If other firefox instances exist, just launch the main executable.
+if [[ $(pidof $firefox_bin) != '' ]]; then
+	exec /usr/bin/firefox -P "$profile" "$@"
+else
+	firefox_sync "$profile" && /usr/bin/firefox -P "$profile" "$@" && firefox_sync "$profile"
+fi
+
+exit 0
