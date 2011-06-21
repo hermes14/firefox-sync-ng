@@ -1,0 +1,20 @@
+== INFO ==
+firefox-sync-ng is a simple script to synchronize the firefox profile residing
+in a physical directory (usually ~/.firefox/) with a copy in /dev/shm using
+tmpfs, to speed the browsing up and limit disk writes, that is especially
+useful with SSDs.
+
+== INSTALLATION ==
+Just copy syncfox into a directory included in your $PATH (e.g. /usr/local/bin
+or ~/bin).
+
+== USAGE ==
+Type
+  $ firefox-sync-ng -h
+for help on usage.
+
+== CREDITS ==
+Original credits (idea, concept and script) go to xrchz <https://aur.archlinux.org/account.php?Action=AccountInfo&ID=13781>
+
+== LICENSE ==
+GPL
