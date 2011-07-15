@@ -31,10 +31,10 @@ function usage()
 	$(basename $0) -h
 
  Options:
+	-h		Shows this help.
 	-l		Lists available profiles.
 	-p <profile>	Launches firefox with <profile> enabled.
-	-h		Shows this help.
-
+	-s		Syncronize all the profiles.
 EOF
 }
 
@@ -69,7 +69,14 @@ function firefox_sync()
 	fi
 }
 
-while getopts "hlp:" option ; do
+function sync_all_profiles()
+{
+	for i in $(list_profiles | sed '1d'); do
+		firefox_sync $i
+	done
+}
+
+while getopts "hlp:s" option ; do
 	case $option in
 		h)
 			usage
@@ -81,6 +88,10 @@ while getopts "hlp:" option ; do
 			;;
 		p)
 			profile="$OPTARG"
+			;;
+		s)
+			sync_all_profiles
+			exit 0
 			;;
 		\? )
 			echo "Please, type $(basename $0) -h for help on usage."
